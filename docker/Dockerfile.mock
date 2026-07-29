@@ -1,0 +1,42 @@
+# Copyright 2026 Enactic, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Builds dora-openarm-evaluation-docker-policy-server: this repository's
+# deterministic MockPolicy stand-in, for the docker socket role. Compatible
+# with the exact `docker run` invocation dora-openarm-docker-policy-server-rust
+# constructs (see that crate's src/docker.rs, build_docker_run_command):
+# the node appends the AF_UNIX socket path after this image's explicit
+# `--mock` opt-in, and bind-mounts the socket into the container.
+#
+# This image does NOT perform LeRobot ACT inference -- it does not even
+# link against PyTorch. For real inference, build docker/Dockerfile.lerobot
+# instead. See this repository's README, "The LeRobot boundary".
+#
+# Caveat: the node that starts this container unconditionally passes
+# `docker run --gpus=all`, which some Docker hosts refuse without an
+# NVIDIA container runtime installed, even though this image itself never
+# touches a GPU. Build context: run from this repository's root, e.g.
+# `docker build -f docker/Dockerfile.mock -t openarm-eval-mock:latest .`
+
+FROM rust:1.85-bookworm AS builder
+WORKDIR /build
+COPY Cargo.toml Cargo.lock ./
+COPY src/ src/
+RUN cargo build --release --bin dora-openarm-evaluation-docker-policy-server
+
+FROM debian:bookworm-slim
+COPY --from=builder \
+    /build/target/release/dora-openarm-evaluation-docker-policy-server \
+    /usr/local/bin/dora-openarm-evaluation-docker-policy-server
+ENTRYPOINT ["dora-openarm-evaluation-docker-policy-server", "--mock"]

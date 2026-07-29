@@ -1,0 +1,25 @@
+dora-openarm-evaluation-rust
+Copyright 2026 Enactic, Inc.
+
+This product includes software developed at Enactic, Inc.
+
+This work is a Rust port of dora-openarm-evaluation:
+
+    https://github.com/enactic/dora-openarm-evaluation
+
+    Copyright 2026 Enactic, Inc.
+    Licensed under the Apache License, Version 2.0.
+
+The original Python implementation and this port are both licensed under
+the Apache License, Version 2.0. See the LICENSE file for the full terms.
+
+Scope note: upstream's src/local_policy_server.py and
+src/docker_policy_server.py load a LeRobot ACT policy checkpoint and run
+inference with PyTorch. This port does not implement LeRobot or PyTorch
+in Rust -- no such runtime exists for either. It ports the Unix-socket
+transport, the NDJSON request/response protocol, Arrow IPC observation
+loading, and the image/state preprocessing pipeline exactly, behind a
+`PolicyModel` trait. Real inference remains a Python/LeRobot
+responsibility, reachable either as the original upstream sidecar
+process or through a future `PolicyModel` implementation that shells out
+to it. See README.md, "The LeRobot boundary", for details.
