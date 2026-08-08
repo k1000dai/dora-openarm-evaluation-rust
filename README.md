@@ -168,9 +168,10 @@ tests assert numerically.
 
 ## Dataflow porting
 
-[`dataflows/`](dataflows/) ports upstream's three dataflow YAMLs
+[`dataflows/`](dataflows/) ports upstream's four dataflow YAMLs
 (`dataflow-cell-sample.yaml`, `dataflow-local-inference.yaml`,
-`dataflow-docker-inference.yaml`). Node ids, inputs, and outputs are
+`dataflow-docker-inference.yaml`, and `dataflow-docker-evaluation.yaml`).
+Node ids, inputs, and outputs are
 byte-identical to upstream -- dora wiring is language-agnostic. Only
 `build:`/`path:` are remapped, and only for node kinds that have a
 published `-rust` port:
@@ -183,6 +184,9 @@ published `-rust` port:
 | `dora-openarm-local-policy-server` | `dora-openarm-local-policy-server-rust` |
 | `dora-openarm-docker-policy-server` | `dora-openarm-docker-policy-server-rust` |
 | `dora-openarm-actions-executor` | `dora-openarm-actions-executor-rust` |
+| `dora-openarm-inference-controller` | `dora-openarm-inference-controller-rust` |
+| `dora-openarm-classifier` | `dora-openarm-classifier-rust` |
+| `dora-openarm-dataset-recorder` | `dora-openarm-dataset-recorder-rust` |
 
 Left as upstream Python, deliberately: `dora-openarm` (the arm driver,
 blocked on the closed-source `openarm-driver` native library),
