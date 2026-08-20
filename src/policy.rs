@@ -59,6 +59,14 @@ pub trait PolicyModel {
     /// key in [`crate::camera_map::CAMERA_KEY_MAP`].
     fn image_sizes(&self) -> HashMap<String, (u32, u32)>;
 
+    /// Resets state at the beginning of an episode or connection.
+    ///
+    /// Upstream calls `policy.reset()` once after loading the checkpoint
+    /// and again when an incoming request carries `reset: true`. Stateless
+    /// implementations may keep this default; stateful adapters should
+    /// clear their action queues and recurrent state here.
+    fn reset(&self) {}
+
     /// Infers an action chunk from `batch`.
     ///
     /// Returns one row per action step, matching upstream's

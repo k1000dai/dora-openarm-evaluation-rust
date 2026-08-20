@@ -149,10 +149,9 @@ See [`src/protocol.rs`](src/protocol.rs) for the implementation and
 For each request: `load_observation` opens the Arrow IPC **FILE** (not
 the streaming format) at `data_path` and reads its single-row
 `StructArray`. `build_batch` then extracts the `position` field
-verbatim as the state vector, and for each of the three mapped camera
-fields (`camera_head_left`, `camera_wrist_left`, `camera_wrist_right` --
-`camera_ceiling` and one of the two head/wrist pairings are **not**
-consumed, matching upstream's `CAMERA_KEY_MAP` exactly) calls
+verbatim as the state vector, and for each of the five mapped camera
+fields (`camera_ceiling`, `camera_head_left`, `camera_head_right`,
+`camera_wrist_left`, `camera_wrist_right`, in that order) calls
 `prepare_image`: `detect_resolution` recovers `(height, width)` from the
 buffer length, the image is resized to the policy's declared input size
 if it differs, and converted from channel-last `u8` `[0, 255]` to

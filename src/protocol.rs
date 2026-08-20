@@ -41,9 +41,8 @@ pub const CUTOFF_HZ: u32 = 15;
 /// Field names match upstream's request dict exactly: `name`, `data_path`,
 /// `reset`, `metadata`. `name` and `metadata` are accepted but not
 /// interpreted by this server, matching upstream, which never reads
-/// either. `reset` is likewise parsed but deliberately unused: upstream's
-/// `policy.reset()` runs once at startup, not per request -- see
-/// `docs/lerobot-boundary.md`.
+/// either. `reset` marks an episode boundary and causes the policy
+/// adapter to reset before that observation is processed.
 #[derive(Debug, Clone, Deserialize)]
 pub struct InferenceRequest {
     /// The request kind. Upstream always sends `"inference"`, but this
@@ -52,8 +51,8 @@ pub struct InferenceRequest {
     pub name: Option<String>,
     /// Path to the Arrow IPC FILE holding the observation's record batch.
     pub data_path: String,
-    /// Whether this observation starts a new episode. Parsed but unused,
-    /// matching upstream (see module docs).
+    /// Whether this observation starts a new episode. When true, the
+    /// policy adapter is reset before inference.
     #[serde(default)]
     pub reset: bool,
     /// The forwarded dora input metadata, opaque to this protocol.

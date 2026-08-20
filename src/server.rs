@@ -77,12 +77,14 @@ impl From<BatchError> for ServerError {
 /// Serves requests from `reader`, writing responses to `writer`, until
 /// the client closes the connection.
 ///
-/// For each request: loads the observation Arrow IPC file named by
-/// `data_path`, builds a [`crate::batch::ModelBatch`] using `policy`'s
-/// declared image sizes, infers an action chunk, and writes back an
-/// [`ActionsResponse`] carrying it plus this server's fixed `interval`
-/// and `cutoff_hz`. Mirrors upstream's request loop exactly, including
-/// running every request to completion before reading the next one.
+/// Resets the policy once for the connection, then for each request loads
+/// the observation Arrow IPC file named by `data_path`, builds a
+/// [`crate::batch::ModelBatch`] using `policy`'s declared image sizes,
+/// infers an action chunk, and writes back an [`ActionsResponse`] carrying
+/// it plus this server's fixed `interval` and `cutoff_hz`. A request with
+/// `reset: true` resets the policy before its observation is processed,
+/// matching upstream's episode-boundary behavior. Requests are run to
+/// completion in arrival order.
 ///
 /// # Errors
 ///
@@ -95,8 +97,12 @@ pub fn serve_connection<R: BufRead, W: Write>(
     writer: &mut W,
     policy: &dyn PolicyModel,
 ) -> Result<(), ServerError> {
+    policy.reset();
     let image_sizes = policy.image_sizes();
     while let Some(request) = read_request(reader)? {
+        if request.reset {
+            policy.reset();
+        }
         let observation = load_observation(Path::new(&request.data_path))?;
         let batch = build_batch(&observation, &image_sizes)?;
         let positions = policy.infer(&batch);

@@ -15,15 +15,16 @@
 //! The observation-field to model-input camera key mapping.
 //!
 //! Matches upstream's `CAMERA_KEY_MAP` exactly, including iteration
-//! order: only 3 of the observer's 5 camera fields are consumed --
-//! `camera_ceiling` and one of the two wrist/head pairings are not
-//! forwarded to the policy. This is upstream's behavior, not an
-//! omission in this port; see `dora-openarm-evaluation/src/local_policy_server.py:32-36`.
+//! order. The policy consumes all five camera fields emitted by the
+//! observer, including the ceiling and right head cameras introduced by
+//! the current upstream evaluation policy.
 
 /// `(observation_field, model_input_key)` pairs, in upstream dict
 /// insertion order.
 pub const CAMERA_KEY_MAP: &[(&str, &str)] = &[
+    ("camera_ceiling", "observation.images.ceiling"),
     ("camera_head_left", "observation.images.head_left"),
+    ("camera_head_right", "observation.images.head_right"),
     ("camera_wrist_left", "observation.images.wrist_left"),
     ("camera_wrist_right", "observation.images.wrist_right"),
 ];

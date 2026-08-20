@@ -13,6 +13,14 @@
 # limitations under the License.
 
 
+"""Local policy server for OpenArm inference with LeRobot 0.6.1.
+
+Since LeRobot 0.4, normalization no longer happens inside the policy: it moved
+into pre/post-processor pipelines that are stored alongside the weights on the
+Hub. The observation therefore goes through `preprocessor` before the policy and
+the predicted chunk goes through `postprocessor` afterwards.
+"""
+
 import json
 import os
 import socket
@@ -23,14 +31,16 @@ import pyarrow as pa
 import torch
 from PIL import Image
 
-from lerobot.policies.pretrained import PreTrainedConfig
-from lerobot.policies.factory import get_policy_class
+from lerobot.configs import PreTrainedConfig
+from lerobot.policies.factory import get_policy_class, make_pre_post_processors
 
 PRETRAINED_PATH = "enactic/act-openarm-2-cell-pick_up_cube_mujoco"
 DEFAULT_SOCKET = "/dev/shm/policy-server.socket"
 
 CAMERA_KEY_MAP = {
+    "camera_ceiling": "observation.images.ceiling",
     "camera_head_left": "observation.images.head_left",
+    "camera_head_right": "observation.images.head_right",
     "camera_wrist_left": "observation.images.wrist_left",
     "camera_wrist_right": "observation.images.wrist_right",
 }
@@ -69,25 +79,31 @@ def prepare_image(raw_data, target_h, target_w):
     return torch.from_numpy(img).permute(2, 0, 1).float() / 255.0
 
 
-def observation_to_batch(observation, device):
+def observation_to_batch(observation):
+    # The preprocessor adds the batch dimension and moves everything to the
+    # policy device, so the batch is built here as unbatched CPU tensors.
     batch = {}
 
     position = observation["position"].values.to_numpy().astype(np.float32)
-    batch["observation.state"] = torch.from_numpy(position).unsqueeze(0).to(device)
+    batch["observation.state"] = torch.from_numpy(position)
 
     for arrow_key, model_key in CAMERA_KEY_MAP.items():
         target_h, target_w = IMAGE_SIZES[model_key]
-        img = prepare_image(observation[arrow_key], target_h, target_w)
-
-        # print(img.shape, img.dtype, img.is_contiguous(), img.stride()) for debugging
-        batch[model_key] = img.unsqueeze(0).to(device)
+        batch[model_key] = prepare_image(observation[arrow_key], target_h, target_w)
 
     return batch
 
 
-def infer(policy, observation, device):
-    batch = observation_to_batch(observation, device)
+def infer(policy, preprocessor, postprocessor, observation):
+    batch = preprocessor(observation_to_batch(observation))
     actions = policy.predict_action_chunk(batch)
+
+    # The postprocessor expects (batch, action_dim), so the chunk is folded into
+    # the batch dimension for a single call and unfolded afterwards.
+    n_batch, chunk_size, action_dim = actions.shape
+    actions = postprocessor(actions.reshape(n_batch * chunk_size, action_dim))
+    actions = actions.reshape(n_batch, chunk_size, action_dim)
+
     positions = actions.squeeze(0).cpu().numpy().tolist()
     return {
         "interval": INTERVAL_NS,
@@ -108,14 +124,20 @@ def main():
     print(f"Loading policy from {PRETRAINED_PATH} on {device}...")
     policy_config = PreTrainedConfig.from_pretrained(PRETRAINED_PATH)
     policy_config.pretrained_path = PRETRAINED_PATH
-    kwargs = {}
-    kwargs["config"] = policy_config
-    kwargs["pretrained_name_or_path"] = policy_config.pretrained_path
-    policy = get_policy_class(policy_config.type).from_pretrained(**kwargs)
-
-    if device != policy.config.device:
-        policy.to(device)
+    policy_config.device = device
+    policy = get_policy_class(policy_config.type).from_pretrained(
+        config=policy_config,
+        pretrained_name_or_path=policy_config.pretrained_path,
+    )
     policy.reset()
+
+    # The saved preprocessor pins the training device (cuda); only its device
+    # step is overridden. The postprocessor already ends on cpu.
+    preprocessor, postprocessor = make_pre_post_processors(
+        policy_config,
+        pretrained_path=PRETRAINED_PATH,
+        preprocessor_overrides={"device_processor": {"device": device}},
+    )
 
     for model_key in CAMERA_KEY_MAP.values():
         feature = policy.config.input_features[model_key]
@@ -136,10 +158,16 @@ def main():
                 with conn.makefile("rw") as io:
                     for line in io:
                         request = json.loads(line)
+                        if request.get("reset"):
+                            # A new episode started: drop the action queue and
+                            # any state cached in the processor pipelines.
+                            policy.reset()
+                            preprocessor.reset()
+                            postprocessor.reset()
                         with pa.OSFile(request["data_path"], "rb") as f:
                             with pa.ipc.open_file(f) as reader:
                                 obs = reader.get_batch(0).to_struct_array()[0]
-                        actions = infer(policy, obs, device)
+                        actions = infer(policy, preprocessor, postprocessor, obs)
                         io.write(json.dumps(actions) + "\n")
                         io.flush()
         finally:

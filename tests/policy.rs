@@ -30,7 +30,7 @@ fn batch_with_state(state: Vec<f32>) -> ModelBatch {
 }
 
 #[test]
-fn with_known_resolution_declares_all_three_mapped_cameras() {
+fn with_known_resolution_declares_all_five_mapped_cameras() {
     let policy = MockPolicy::with_known_resolution(480, 640);
     let sizes = policy.image_sizes();
 

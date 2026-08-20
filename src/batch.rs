@@ -15,7 +15,7 @@
 //! Assembly of one observation into a model-ready batch.
 //!
 //! Ports upstream's `observation_to_batch`: extract the state vector and
-//! the three mapped camera images, resizing each to the size the policy
+//! the five mapped camera images, resizing each to the size the policy
 //! declares for its corresponding input feature.
 
 use std::collections::HashMap;

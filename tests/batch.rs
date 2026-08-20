@@ -26,7 +26,7 @@ use dora_openarm_evaluation_rust::camera_map::CAMERA_KEY_MAP;
 use dora_openarm_evaluation_rust::observation::ObservationError;
 
 /// A one-row observation `StructArray` with a `position` field and the
-/// three camera fields `build_batch` reads, each holding a 3x4 (36-byte)
+/// five camera fields `build_batch` reads, each holding a 3x4 (36-byte)
 /// image -- the same tiny fixture `image_prep`'s tests use.
 fn sample_observation(position: Vec<f32>) -> StructArray {
     let camera_bytes: Vec<u8> = (0_u8..36).collect();
@@ -84,7 +84,9 @@ fn images_are_built_in_camera_key_map_order() {
     assert_eq!(
         model_keys,
         vec![
+            "observation.images.ceiling",
             "observation.images.head_left",
+            "observation.images.head_right",
             "observation.images.wrist_left",
             "observation.images.wrist_right",
         ]
